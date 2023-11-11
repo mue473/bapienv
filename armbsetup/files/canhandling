@@ -1,0 +1,57 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          canhandling
+# Required-Start:    $syslog $time
+# Required-Stop:     $syslog $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: setup CAN handling
+# Description:       start CAN and virtual CAN and send shutdown info via CAN
+#					 This file is free software, C 2023 Rainer Müller
+### END INIT INFO
+
+set -e
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
+
+# Include core init functions if needed
+. /lib/lsb/init-functions
+
+start() {
+	# choose communication CAN bus, either can0 or vcan0
+	commcan=can0
+
+	# setup physical CAN interface with 250kbit/s
+	ip link set can0 up type can bitrate 250000 presume-ack on restart-ms 10
+
+	# setup virtual CAN interface
+	ip link add type vcan
+	ip link set vcan0 up
+
+	# start gateway for MCS devices
+	can2lan -m -c /www/config -i $commcan
+}
+
+stop() {
+	# inform can slaves about shutdown
+	cansend can0 00000301#0000000000
+	sleep 1
+}
+
+case "${1:-}" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart)
+		stop
+		start
+		;;
+	*)
+	echo "Usage: ${0:-} {start|stop|status|restart}" >&2
+		exit 1
+		;;
+esac
