@@ -6,16 +6,11 @@
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
 
-# BINS requiring root priviledges
-RBINS := s88udp s88test-bpi s88can spitest
-
-BINS := $(RBINS) can2udp can2serial clone-cs2-config clone-cs2-trigger clone-ms2-loco \
-        read-cs2-ini gb2-update ir-tester cs2ping can2lan ms2wifi ms2-loco-list pio-i2c-udp \
-        read_lococard wake-up-c6020 wake-up-links88 lan-schnitte xntcpd 
-
 .PHONY:	all check install clean
 
-all:	$(BINS)
+# BINS requiring root priviledges
+RBINS := s88udp s88test-bpi s88can spitest ir-tester read_lococard
+S88UDPOBJ = allwinner.o s88udp-bpi.o
 
 CFLAGS := -DSUNXI_A20 -g -O2 -MD -std=gnu99 -Wall -Wextra
 CFLAGS += -fstack-protector-strong -Wformat -Werror=format-security -Wmaybe-uninitialized -pedantic-errors
@@ -23,10 +18,22 @@ CFLAGS += -fstack-protector-strong -Wformat -Werror=format-security -Wmaybe-unin
 # modifications for special environment
 -include /etc/os-release
 ifneq ($(findstring OpenWrt, $(NAME)), )
-	DESTDIR=/usr/bin
+	DESTDIR = /usr/bin
 else
-	DESTDIR=/usr/local/bin
+	DESTDIR = /usr/local/bin
+	ifneq ($(findstring raspbian, $(ID)), )
+		RBINS := s88udp spitest
+		S88UDPOBJ = raspi.o s88udp-rpi.o
+	else
+		DEFS = -DI2C_CARD_PATH=\"/sys/bus/i2c/devices/2-0050/eeprom\"
+	endif
 endif
+
+BINS := $(RBINS) can2udp can2serial clone-cs2-config clone-cs2-trigger clone-ms2-loco \
+        read-cs2-ini gb2-update cs2ping can2lan ms2wifi ms2-loco-list pio-i2c-udp \
+        wake-up-c6020 wake-up-links88 lan-schnitte xntcpd 
+
+all:	$(BINS)
 
 install: all
 	@echo $(NAME) uses $(DESTDIR)
@@ -85,8 +92,8 @@ pio-i2c-udp: pio-i2c-udp.o
 read_lococard: read-cs2-config.o read_lococard.o
 	$(CC) $(CFLAGS) -o read_lococard read-cs2-config.o read_lococard.o
 
-s88udp: allwinner.o s88udp-bpi.o
-	$(CC) $(CFLAGS) -o s88udp allwinner.o s88udp-bpi.o
+s88udp: $(S88UDPOBJ)
+	$(CC) $(CFLAGS) -o s88udp $(S88UDPOBJ)
 
 s88test-bpi: allwinner.o s88test-bpi.o
 	$(CC) $(CFLAGS) -o s88test-bpi allwinner.o s88test-bpi.o
@@ -96,9 +103,6 @@ wake-up-links88: wake-up-links88.o
 
 wake-up-c6020: wake-up-c6020.o
 	$(CC) $(CFLAGS) -o wake-up-c6020 wake-up-c6020.o
-
-gpio-poll: gpio-poll.o
-	$(CC) $(CFLAGS) -o gpio-poll gpio-poll.o
 
 xntcpd: xntcpd.o
 	$(CC) $(CFLAGS) -o xntcpd xntcpd.o
