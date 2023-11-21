@@ -1,0 +1,8 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing,
+# but here we start sound and PEK handling for M-BPi.
+
+alsactl --file /etc/asound.state restore
+/sbin/bpipek &
+exit 0
+

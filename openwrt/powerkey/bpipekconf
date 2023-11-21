@@ -1,0 +1,13 @@
+# example for Power Event Key configuration file
+# switch boosters off on any press, BaPi only on long press
+
+# action when PEK presesd down
+P: logger Power Event Key has been presesd down
+P: /usr/bin/cansend can0 00000301#0000000000
+
+# action when PEK released after short time
+S: logger Power Event Key has been released after short time
+
+# action when PEK released after long time
+L: logger Power Event Key has been released after long time
+L: /sbin/poweroff
