@@ -6,6 +6,8 @@
 
 - dtb -> corrections for the BaPi device tree under Armbian
 
+- i2card -> driver for a I2C card supporting page mode write access
+
 - openwrt -> ideas for improving the openwrt image
 
 - railroad -> adaptions for building railroad SW on the target
