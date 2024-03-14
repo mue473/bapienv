@@ -1,3 +1,9 @@
+// i2card.c - character device driver to access i2c card
+//				it will create a device at /dev/i2card
+//
+// C 2023 - 2024 Rainer Müller
+// This program is free software according to GNU General Public License 3 (GPL3).
+
 
 //#define DEBUG
 
@@ -9,7 +15,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/uaccess.h>
-
+#include <linux/version.h>
 
 #define SUCCESS 0
 #define DEVICE_NAME "i2card"
@@ -114,7 +120,7 @@ static int i2card_open(struct inode *devnode, struct file *filp)
 	actpos = 0;
 	ret = i2card_i2get(1);			// check if card is accessible
 	if (ret != 2) {
-		pr_alert("%s: reading one byte failed with code %d.\n", DEVICE_NAME, ret);
+		pr_devel("%s: reading one byte failed with code %d.\n", DEVICE_NAME, ret);
 		i2card_close(devnode, filp);
 		return ret;
 	}
@@ -200,7 +206,11 @@ static int __init i2card_init(void)
 		pr_alert("%s: registering device failed with %d.\n", DEVICE_NAME, major);
 		return major;
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	cls = class_create(DEVICE_NAME);
+#else
 	cls = class_create(THIS_MODULE, DEVICE_NAME);
+#endif
 	device_create(cls, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
 	pr_info("%s: created with major number %d using I2C bus %d, EEPROM size %d.\n",
 			DEVICE_NAME, major, i2cbusid, eepsize);

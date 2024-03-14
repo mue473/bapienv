@@ -1,6 +1,6 @@
 #
 # Makefile for the i2card driver for BananaPi
-# C 2023 Rainer Müller 
+# C 2023 - 2024 Rainer Müller 
 #
 .PHONY:	default install clean
 MODBASE := /lib/modules/$(shell uname -r)
@@ -16,19 +16,28 @@ default:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 endif
 
-COMP := $(shell grep CONFIG_MODULE_COMPRESS $(MODBASE)/build/.config)
+COMP := $(shell grep "^CONFIG_MODULE_COMPRESS" $(MODBASE)/build/.config)
+ifeq ($(findstring PRESS, $(COMP)), )
+	COMP = "NONE=y"
+endif
 
-install:
+install: default
 	@echo "config: $(COMP)"
-ifeq ($(findstring =y, $(COMP)), )
+ifneq ($(findstring NONE=y, $(COMP)), )
 	@echo modules are uncompressed
 	cp -p i2card.ko $(MODBASE)/kernel/drivers/misc/eeprom/
+else ifneq ($(findstring GZIP=y, $(COMP)), )
+	@echo modules are gzip compressed - actually not supported
+	rm -f i2card.ko.gz
+else ifneq ($(findstring ZSTD=y, $(COMP)), )
+	@echo modules are zstd compressed - actually not supported
+	rm -f i2card.ko.zst
 else
-	@echo modules are compressed
+	@echo modules are xz compressed
 	rm -f i2card.ko.xz
 	xz -k i2card.ko
 	cp -p i2card.ko.xz $(MODBASE)/kernel/drivers/misc/eeprom/
 endif
 
 clean:
-	@rm -f .*.cmd *.mod *.o *.ko *.ko.xz
+	@rm -f .*.cmd *.mod *.o *.ko *.ko.*

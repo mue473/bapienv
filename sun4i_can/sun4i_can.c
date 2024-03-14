@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2013 Peter Chen
  * Copyright (C) 2015 Gerhard Bertelsmann
+ * updated 2022 - 2024 Rainer Müller
  * All rights reserved.
  *
  * Parts of this software are based on (derived from) the SJA1000 code by:
@@ -51,7 +52,6 @@
 #include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/can/error.h>
-#include <linux/can/led.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -59,7 +59,6 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/version.h>
 
@@ -500,21 +499,20 @@ static void sun4i_can_rx(struct net_device *dev)
 	}
 
 	/* remote frame ? */
-	if (fi & SUN4I_MSG_RTR_FLAG)
+	if (fi & SUN4I_MSG_RTR_FLAG) {
 		id |= CAN_RTR_FLAG;
-	else
+	} else {
 		for (i = 0; i < cf->can_dlc; i++)
 			cf->data[i] = readl(priv->base + dreg + i * 4);
 
+		stats->rx_bytes += cf->can_dlc;
+	}
+	stats->rx_packets++;
 	cf->can_id = id;
 
 	sun4i_can_write_cmdreg(priv, SUN4I_CMD_RELEASE_RBUF);
 
-	stats->rx_packets++;
-	stats->rx_bytes += cf->can_dlc;
 	netif_rx(skb);
-
-	can_led_event(dev, CAN_LED_EVENT_RX);
 }
 
 static int sun4i_can_err(struct net_device *dev, u8 isrc, u8 status)
@@ -614,7 +612,6 @@ static int sun4i_can_err(struct net_device *dev, u8 isrc, u8 status)
 		netdev_dbg(dev, "arbitration lost interrupt\n");
 		alc = readl(priv->base + SUN4I_REG_STA_ADDR);
 		priv->can.can_stats.arbitration_lost++;
-		stats->tx_errors++;
 		if (likely(skb)) {
 			cf->can_id |= CAN_ERR_LOSTARB;
 			cf->data[0] = (alc >> 8) & 0x1f;
@@ -633,13 +630,10 @@ static int sun4i_can_err(struct net_device *dev, u8 isrc, u8 status)
 			can_bus_off(dev);
 	}
 
-	if (likely(skb)) {
-		stats->rx_packets++;
-		stats->rx_bytes += cf->can_dlc;
+	if (likely(skb))
 		netif_rx(skb);
-	} else {
+	else
 		return -ENOMEM;
-	}
 
 	return 0;
 }
@@ -662,17 +656,13 @@ static irqreturn_t sun4i_can_interrupt(int irq, void *dev_id)
 
 		if (isrc & SUN4I_INT_TBUF_VLD) {
 			/* transmission complete interrupt */
-			stats->tx_bytes +=
-			    readl(priv->base +
-				  SUN4I_REG_RBUF_RBACK_START_ADDR) & 0xf;
-			stats->tx_packets++;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,12,0)
-			can_get_echo_skb(dev, 0);
+			stats->tx_bytes += can_get_echo_skb(dev, 0);
 #else
-			can_get_echo_skb(dev, 0, NULL);
+			stats->tx_bytes += can_get_echo_skb(dev, 0, NULL);
 #endif
+			stats->tx_packets++;
 			netif_wake_queue(dev);
-			can_led_event(dev, CAN_LED_EVENT_TX);
 		}
 		if ((isrc & SUN4I_INT_RBUF_VLD) &&
 		    !(isrc & SUN4I_INT_DATA_OR)) {
@@ -730,7 +720,6 @@ static int sun4ican_open(struct net_device *dev)
 		goto exit_can_start;
 	}
 
-	can_led_event(dev, CAN_LED_EVENT_OPEN);
 	netif_start_queue(dev);
 
 	return 0;
@@ -754,7 +743,6 @@ static int sun4ican_close(struct net_device *dev)
 
 	free_irq(dev->irq, dev);
 	close_candev(dev);
-	can_led_event(dev, CAN_LED_EVENT_STOP);
 
 	return 0;
 }
@@ -848,7 +836,6 @@ static int sun4ican_probe(struct platform_device *pdev)
 			DRV_NAME, err);
 		goto exit_free;
 	}
-	devm_can_led_init(dev);
 
 	dev_info(&pdev->dev, "device registered (base=%p, irq=%d)\n",
 		 priv->base, dev->irq);
