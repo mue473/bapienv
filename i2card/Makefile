@@ -2,8 +2,13 @@
 # Makefile for the i2card driver for BananaPi
 # C 2023 - 2024 Rainer Müller 
 #
-.PHONY:	default install clean
-MODBASE := /lib/modules/$(shell uname -r)
+.PHONY:	default install clean uninstall
+
+# building specific or the current running version
+ifndef KVERSION
+KVERSION	:= $(shell uname -r)
+endif
+MODBASE := /lib/modules/$(KVERSION)
 
 ifneq ($(KERNELRELEASE),)
 obj-m := i2card.o
@@ -41,3 +46,6 @@ endif
 
 clean:
 	@rm -f .*.cmd *.mod *.o *.ko *.ko.*
+
+uninstall:
+	rm -f $(MODBASE)/kernel/drivers/misc/eeprom/i2card.k*

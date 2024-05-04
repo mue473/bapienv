@@ -2,8 +2,13 @@
 # Makefile for the sun4i_can driver for BananaPi
 # C 2019 - 2024 Rainer Müller 
 #
-.PHONY:	default install clean
-MODBASE := /lib/modules/$(shell uname -r)
+.PHONY:	default install clean uninstall
+
+# building specific or the current running version
+ifndef KVERSION
+KVERSION	:= $(shell uname -r)
+endif
+MODBASE := /lib/modules/$(KVERSION)
 
 ifneq ($(KERNELRELEASE),)
 obj-m := sun4i_can.o
@@ -41,3 +46,6 @@ endif
 
 clean:
 	@rm -f .*.cmd *.mod *.o *.ko *.ko.*
+
+uninstall:
+	rm -f $(MODBASE)/kernel/drivers/net/can/sun4i_can.k*
