@@ -1,0 +1,4 @@
+# execute trigger file to update aditional drivers - 2024 by R.Müller
+
+DPkg::Post-Invoke {"echo update aditional drivers || true";};
+DPkg::Post-Invoke {"test -x /var/lib/apt/driverhook && /var/lib/apt/driverhook || true";};

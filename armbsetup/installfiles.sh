@@ -7,7 +7,11 @@ chmod +x /etc/rc.local
 
 cp -p files/temp-blacklist.conf /etc/modprobe.d/
 cp -p files/i2card.conf /etc/modprobe.d/
-cp -p files/canhandling /etc/init.d/
+
+cp -p files/driverinst /etc/kernel/postinst.d/
+cp -p files/driverrem /etc/kernel/prerm.d/
+cp -p files/20-driverupdate /etc/apt/apt.conf.d/
+chmod +x /etc/kernel/*/driver*
 
 # HTTP Server
 cp -p files/lighttpd.conf /etc/lighttpd/

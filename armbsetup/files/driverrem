@@ -1,0 +1,4 @@
+#!/bin/sh 
+# remove kernel object files of additional drivers - 2024 by R.Müller
+
+find /usr/src/drivers -name Makefile -execdir make KVERSION=$1 uninstall \;

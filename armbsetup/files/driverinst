@@ -1,0 +1,7 @@
+#!/bin/sh 
+# generate trigger file to update aditional drivers - 2024 by R.Müller
+
+echo find /usr/src/drivers -name Makefile -execdir make KVERSION=$1 install \\\; > /var/lib/apt/driverhook
+echo depmod $1 >> /var/lib/apt/driverhook
+echo rm -f /var/lib/apt/driverhook >> /var/lib/apt/driverhook
+chmod +x /var/lib/apt/driverhook
