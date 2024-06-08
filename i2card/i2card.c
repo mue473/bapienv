@@ -4,7 +4,6 @@
 // C 2023 - 2024 Rainer Müller
 // This program is free software according to GNU General Public License 3 (GPL3).
 
-
 //#define DEBUG
 
 #include <linux/atomic.h>
@@ -16,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
+#include "i2card.h"
 
 #define SUCCESS 0
 #define DEVICE_NAME "i2card"
@@ -45,7 +45,7 @@ static int major;
 static loff_t actpos;
 static struct class *cls;
 static struct i2c_adapter *adapter;
-
+static struct ioctl_rd ioparms;
 
 static int i2card_i2get(int nmbr)
 {
@@ -95,9 +95,9 @@ static int i2card_i2put(int nmbr)
 
 static void i2card_checksizes(void)
 {
-	if (!is_power_of_2(eepsize))
+	if (!is_power_of_2(ioparms.cardsize))
 		pr_alert("%s: EEPROM size looks suspicious (no power of 2)!\n", DEVICE_NAME);
-	if (!is_power_of_2(pagesize))
+	if (!is_power_of_2(ioparms.pagesize))
 		pr_alert("%s: page size looks suspicious (no power of 2)!\n", DEVICE_NAME);
 }
 
@@ -124,6 +124,8 @@ static int i2card_open(struct inode *devnode, struct file *filp)
 		i2card_close(devnode, filp);
 		return ret;
 	}
+	ioparms.cardsize = eepsize;
+	ioparms.pagesize = pagesize;
 	return SUCCESS;
 }
 
@@ -133,10 +135,10 @@ static loff_t i2card_seek(struct file *filp, loff_t offset, int whence)
 	switch (whence) {
 		case SEEK_SET:	break;
 		case SEEK_CUR:	offset += actpos;	break;
-		case SEEK_END:  offset += eepsize;	break;
+		case SEEK_END:  offset += ioparms.cardsize;	break;
 		default:		return -EINVAL;
 	}
-	if ((offset < 0) || (offset > eepsize))
+	if ((offset < 0) || (offset > ioparms.cardsize))
 		return -ERANGE;
 	actpos = offset;
 	return actpos;
@@ -144,16 +146,27 @@ static loff_t i2card_seek(struct file *filp, loff_t offset, int whence)
 
 static long i2card_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	// TODO: add ioctl handling so that smart user programs can access parameters.
-	pr_alert("%s: ioctl operation is not yet supported.\n", DEVICE_NAME);
-	return -ENOTSUPP;
+	long l;
+	switch (cmd) {
+		case IOCTL_PARMGET:	l = copy_to_user((void *) arg, &ioparms, sizeof ioparms);
+							break;
+		case IOCTL_PARMSET: l = copy_from_user(&ioparms.cardsize, (void *) arg,
+													sizeof(struct ioctl_wr));
+							pr_info("%s: parms modified: EEPROM size %d, pagesize %d.\n",
+									DEVICE_NAME, ioparms.cardsize, ioparms.pagesize);
+							i2card_checksizes();
+							break;
+		default:	pr_alert("%s: ioctl operation %u is not supported.\n", DEVICE_NAME, cmd);
+					return -ENOTSUPP;
+	}
+	return (l ? -EIO : SUCCESS);		
 }
 
 static ssize_t i2card_read(struct file *filp, char __user *buff, size_t count, loff_t *offset)
 {
 	int toread, res;
 	pr_devel("%s: read into buffer with size %u from offset %lli.\n", DEVICE_NAME, count, *offset);
-	toread = eepsize - actpos;
+	toread = ioparms.cardsize - actpos;
 	if (toread > DATASIZE)
 		toread = DATASIZE;
 	if (toread > count)
@@ -173,12 +186,12 @@ static ssize_t i2card_write(struct file *filp, const char __user *buff, size_t l
 { 
 	int towrite, res;
 	pr_devel("%s: write from buffer with size %u to offset %lli.\n", DEVICE_NAME, len, *offset);
-	if (pagesize > DATASIZE)
-		pagesize = DATASIZE;
-	towrite = pagesize - (actpos & (pagesize - 1));		// fit in page
+	if (ioparms.pagesize > DATASIZE)
+		ioparms.pagesize = DATASIZE;
+	towrite = ioparms.pagesize - (actpos & (ioparms.pagesize - 1));		// fit in page
 	if (towrite > len)
 		towrite = len;
-	if ((actpos + towrite) > eepsize)
+	if ((actpos + towrite) > ioparms.cardsize)
 		return -ENOSPC;
 	len = towrite - copy_from_user(devbuf + ADRSIZE, buff, towrite);
     res = i2card_i2put(len);
@@ -194,7 +207,7 @@ static struct file_operations fops = {
 	.llseek  = i2card_seek,
 	.read    = i2card_read,
 	.write   = i2card_write,
-	.compat_ioctl = i2card_ioctl,
+	.unlocked_ioctl = i2card_ioctl,
 	.open    = i2card_open,
 	.release = i2card_close,
 };
@@ -214,6 +227,10 @@ static int __init i2card_init(void)
 	device_create(cls, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
 	pr_info("%s: created with major number %d using I2C bus %d, EEPROM size %d.\n",
 			DEVICE_NAME, major, i2cbusid, eepsize);
+	ioparms.i2cbus = i2cbusid;
+	ioparms.i2caddr = i2caddr;
+	ioparms.cardsize = eepsize;
+	ioparms.pagesize = pagesize;
 	i2card_checksizes();
 	adapter = i2c_get_adapter(i2cbusid);
     if (adapter == NULL)
