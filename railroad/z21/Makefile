@@ -1,6 +1,6 @@
 #
 # Makefile for the Z21-Emulation for BananaPi: https://github.com/GBert/railroad/tree/master/z21
-# to be run on target	-	C 2023 Rainer Müller
+# to be run on target	-	C 2023 - 2024 Rainer Müller
 #
 # This Makefile is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -27,7 +27,7 @@ install: all
 	cp -u -p $(BINS) $(DESTDIR)
 
 check:
-	cppcheck --enable=all . 2> cppcheck.txt
+	cppcheck --enable=all . 2> cppcheck.txt 1| cat
 
 Z21EMU_OBJS = net.o cs2_net.o cs2-data-functions.o measurement.o read-cs2-config.o subscribe.o utils.o xpn_tty.o z21emu.o
 

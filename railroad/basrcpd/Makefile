@@ -1,6 +1,6 @@
 #
 # Makefile for the basrcpd project for BananaPi
-# to be run on target	-	C 2018 - 2023 Rainer Müller 
+# to be run on target	-	C 2018 - 2024 Rainer Müller 
 #
 # This Makefile is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -54,7 +54,7 @@ obj/%.o: %.c
 
 check:
 	@echo **Checking
-	@$(CHK) . 2> cppcheck.txt
+	@$(CHK) . 2> cppcheck.txt 1| cat
 
 
 install:

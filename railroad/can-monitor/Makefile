@@ -1,6 +1,6 @@
 #
 # Makefile for the CAN-Monitor for BananaPi: https://github.com/GBert/railroad/tree/master/can-monitor
-# to be run on target	-	C 2023 Rainer Müller
+# to be run on target	-	C 2023 - 2024 Rainer Müller
 #
 # This Makefile is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -30,7 +30,7 @@ install: all
 	$(SETCAP)
 
 check:
-	cppcheck --enable=all . 2> cppcheck.txt
+	cppcheck --enable=all . 2> cppcheck.txt 1| cat
 
 OBJS = crc-ccitt.o lib.o decoder-can-cdb.o decoder-can-cs1.o decoder-can-cs2.o decoder-can-maecan.o decoder-z21.o tools.o can-monitor.o
 
