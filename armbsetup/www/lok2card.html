@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- locolist to lococard converter by Marcel Maage, updated 2024 by Rainer Müller -->
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 to lococard Converter</title>
+    <style>
+        table, th, td {
+          border: 1px solid black;
+          height: 24px;
+        }
+
+        body{margin: 0px;}
+        body,p,div,h1,h2,td,th{font-family:sans-serif;font-size:12px}
+        header{font-size:20px;color:white; background-color:#96B11C;margin:1px;padding:5px;}
+        h1{font-size:20px;color:white; background-color:#96B11C;margin:1px;padding:5px;}
+        h2, button, input {font-size:18px;}
+        p,h2{margin:0px0px5px0px}
+
+        body {
+        font-family: "Lato", sans-serif;
+        transition: background-color .5s;
+        }
+    </style>
+</head>
+<body>
+    <h1>CS2 to lococard Converter</h1>
+    <br>
+    <button type="button" id="fromserver">Server</button>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <input type="file" name="cs2InputFile" id="cs2InputFile">
+    <br>
+    <br>
+    <div class="locoTableContainer">
+        <table>
+            <thead>
+                <th>Name</th>
+                <th>Icon</th>
+                <th>Adresse</th>
+                <th>Format</th>
+                <th>File</th>
+            </thead>
+            <tbody id="locoTable">
+            </tbody>
+        </table>
+    </div>
+
+    <pre id="debugOutput"></pre>
+
+    <script type="text/javascript">
+
+        var lokomotiveCs2 = 0;
+        'use strict';
+
+        document.getElementById('fromserver')
+        .addEventListener('click', function() {
+            fetch('config/lokomotive.cs2', { cache: "no-store" })
+              .then(response => response.blob())
+              .then(blob => {
+                 var fr=new FileReader();
+                 fr.onload=function(){
+                    locoTable.innerHTML = "";
+                    createLocoTable(fr.result);
+                 }
+            fr.readAsText(blob);
+            });
+        })
+
+        document.getElementById('cs2InputFile')
+            .addEventListener('change', function() {
+
+            var fr=new FileReader();
+            fr.onload=function(){
+                locoTable.innerHTML = "";
+                createLocoTable(fr.result);
+            }
+            fr.readAsText(this.files[0]);
+        })
+
+        function createLocoTable(lokomotiveCs2)
+        {
+            lokomotiveCs2 = lokomotiveCs2.replace(/(\r\n)/gm,"\n");
+            if (lokomotiveCs2.substring(0, 12) === "[lokomotive]") {
+            let locoArray = lokomotiveCs2.split(' .name=');
+            //let index = locoArray[1].search(/\n/);
+            //document.getElementById('debugOutput').textContent=locoArray[1].substr(0, index);
+
+            //remove first element of Array
+            locoArray.shift();
+            locoArray.forEach((loco)=>{
+                analyzeLoco(loco);
+            });
+            }
+            else alert("Falsche Dateikennung");
+        }
+
+        function analyzeLoco(data)
+        {
+            // get buffer for data
+            let binData = new Uint8Array(8192);
+
+            // extract name of loco
+            const name = data.substring(0, data.indexOf('\n'));
+
+            // get adress
+            const adress = getNumber(data, '.adresse=');
+
+            // get protocol
+            const protocol = getString(data, '.typ=');
+
+            // get icon
+            const icon = getString(data, '.icon=');
+            const locoIcon = document.createElement("img");
+            locoIcon.src = `icons/${icon}.png`;
+            locoIcon.alt = icon;
+
+            let binIndex = 0;
+            // in order to detect the correct protocol, i have to get number of functions first
+            switch (protocol) {
+                case "mm":
+                    binData[binIndex++] = 2;
+                    binData[binIndex++] = 117;
+                    binData[binIndex++] = 0;
+                break;
+
+                case "mm2_prg":
+                    binData[binIndex++] = 2;
+                    binData[binIndex++] = 231;
+                    binData[binIndex++] = 0;
+                break;
+
+                case "mfx":
+                    binData[binIndex++] = 2;
+                    binData[binIndex++] = 229;
+                    binData[binIndex++] = 0;
+                break;
+
+                case "dcc":
+                    binData[binIndex++] = 2;
+                    binData[binIndex++] = 197;
+                    binData[binIndex++] = 0;
+                break;
+
+                default:
+                    binData[binIndex++] = 2;
+                    binData[binIndex++] = 231;
+                    binData[binIndex++] = 0;
+            }
+
+            // get uid
+            const uid = getNumber(data, '.uid=');
+
+            // add uid to bin
+            binData[binIndex++] = 1;
+            binData[binIndex++] = 4;
+            binData[binIndex++] = uid;
+            binData[binIndex++] = uid/256;
+            binData[binIndex++] = uid/65536;
+            binData[binIndex++] = uid/16777216;
+
+            // add adress to bin
+            binData[binIndex++] = 2;
+            binData[binIndex++] = 2;
+            binData[binIndex++] = adress;
+            binData[binIndex++] = adress/256;
+
+            // get acceleration delay
+            const av = getNumber(data, '.av=');
+            // add av to bin
+            binData[binIndex++] = 3;
+            binData[binIndex++] = 1;
+            binData[binIndex++] = av;
+
+            // get slow down delay
+            const bv = getNumber(data, '.bv=');
+            // add bv to bin
+            binData[binIndex++] = 4;
+            binData[binIndex++] = 1;
+            binData[binIndex++] = bv;
+
+            // get vmin
+            const vmin = getNumber(data, '.vmin=');
+            // add vmin to bin
+            binData[binIndex++] = 5;
+            binData[binIndex++] = 1;
+            binData[binIndex++] = vmin;
+
+            // get vmax
+            const vmax = getNumber(data, '.vmax=');
+            // add vmax to bin
+            binData[binIndex++] = 6;
+            binData[binIndex++] = 1;
+            binData[binIndex++] = vmax;
+
+            // add tacho to bin
+            const tacho = getNumber(data, '.tachomax=');
+            if(!Number.isNaN(tacho))
+            {
+                binData[binIndex++] = 7;
+                binData[binIndex++] = 2;
+                binData[binIndex++] = tacho;
+                binData[binIndex++] = tacho/256;
+            }
+
+            // get volume
+            const volume = getNumber(data, '.volume=');
+            // add volume to bin
+            binData[binIndex++] = 8;
+            binData[binIndex++] = 1;
+            binData[binIndex++] = volume;
+
+            // add functions to bin
+            let functions = data.substring(data.indexOf('.funktionen\n')+13).split('.funktionen\n');
+            binData[binIndex++] = 9;
+            binData[binIndex++] = functions.length * 10;
+            //document.getElementById('debugOutput').textContent=functions.length;
+            functions.forEach((locoFunction)=>{
+                binData[binIndex++] = getNumber(locoFunction, '..typ=');
+                const dauer = getNumber(locoFunction, '..dauer=');
+                if(!Number.isNaN(dauer))
+                {
+                    binData[binIndex++] = dauer;
+                }
+                else
+                {
+                    binIndex++;
+                }
+                binIndex+=8;
+            });
+
+            // add functions_2 to bin
+            let functions2 = data.substring(data.indexOf('.funktionen_2\n')+15).split('.funktionen_2\n');
+            binData[binIndex++] = 13;
+            binData[binIndex++] = 32;
+            let numberOfFunctions = 32;
+            //document.getElementById('debugOutput').textContent=functions.length;
+            functions2.forEach((locoFunction)=>{
+                const typ2 = getNumber(locoFunction, '..typ=');
+                if(!Number.isNaN(typ2))
+                {
+                    binData[binIndex++] = typ2;
+                }
+                else
+                {
+                    binData[binIndex++] = 0;
+                }
+                const dauer2 = getNumber(locoFunction, '..dauer=');
+                if(!Number.isNaN(dauer2))
+                {
+                    binData[binIndex++] = dauer2;
+                }
+                else
+                {
+                    binData[binIndex++] = 0;
+                }
+                numberOfFunctions-=2;
+            });
+            binIndex += numberOfFunctions;
+            //TODO: prevent error in case that there are more or less funktionen_2 than 16
+
+            // get mfx uid
+            const mfxuid = getNumber(data, '.mfxuid=');
+            // add mfx uid to bin
+            binData[binIndex++] = 10;
+            binData[binIndex++] = 4;
+            binData[binIndex++] = mfxuid;
+            binData[binIndex++] = mfxuid/256;
+            binData[binIndex++] = mfxuid/65536;
+            binData[binIndex++] = mfxuid/16777216;
+
+            const symbol = getNumber(data, '.symbol=');
+            // add symbol to bin as CS2
+            binData[binIndex++] = 14;
+            binData[binIndex++] = 1;
+            binData[binIndex++] = symbol;
+
+            // add symbol to bin as MS2
+            binData[binIndex++] = 15;
+            binData[binIndex++] = 1;
+            binData[binIndex++] = symbol;
+
+            let indexMxf = data.indexOf('.mfxAdr');
+            if(indexMxf >= 0)
+            {
+                // add mfx block to bin
+                binData[binIndex++] = 12;
+                binData[binIndex++] = 16;
+                indexMxf += '.mfxAdr'.length;
+                const mfxStruct = data.substring(indexMxf);
+                const target = getNumber(mfxStruct, '..target=');
+                binData[binIndex++] = target;
+                binData[binIndex++] = target/256;
+                const nameIndex = data.indexOf('..name=');
+                if(nameIndex >= 0)
+                {
+                    nameIndex+='..name='.length;
+                    const mfxName = Number(data.substring(nameIndex, data.indexOf('\n', nameIndex) - 1));
+                    binData[binIndex++] = mfxName;
+                    binData[binIndex++] = mfxName/256;
+                }
+                else
+                {
+                    const mfxName = getNumber(mfxStruct, '..name');
+                    binData[binIndex++] = mfxName;
+                    binData[binIndex++] = mfxName/256;
+                }
+                const speedtable = getNumber(mfxStruct, '..speedtable=');
+                binData[binIndex++] = speedtable;
+                binData[binIndex++] = speedtable/256;
+                const addr = getNumber(mfxStruct, '..addr=');
+                binData[binIndex++] = addr;
+                binData[binIndex++] = addr/256;
+                const xcel = getNumber(mfxStruct, '..xcel=');
+                binData[binIndex++] = xcel;
+                binData[binIndex++] = xcel/256;
+                const volume = getNumber(mfxStruct, '..volume=');
+                binData[binIndex++] = volume;
+                binData[binIndex++] = volume/256;
+                const numfunc = getNumber(mfxStruct, '..numfunc=');
+                binData[binIndex++] = numfunc;
+                binData[binIndex++] = numfunc/256;
+                const func = getNumber(mfxStruct, '..func=');
+                binData[binIndex++] = func;
+                binData[binIndex++] = func/256;
+            }
+
+            // add name and protocol string to bin
+            binData[binIndex++] = 0;
+            binData[binIndex++] = 3;
+            binData[binIndex++] = name.length + protocol.length + 5;
+            binData[binIndex++] = (name.length + protocol.length + 5) / 256;
+            binData[binIndex++] = 30;
+            binData[binIndex++] = name.length;
+            for (let i = 0; i < name.length; i++) {
+                binData[binIndex++] = name.charCodeAt(i);
+            }
+            binData[binIndex++] = 31;
+            binData[binIndex++] = protocol.length;
+            for (let i = 0; i < protocol.length; i++) {
+                binData[binIndex++] = protocol.charCodeAt(i);
+            }
+
+            addLocoToTable(name, locoIcon, adress, protocol, binData);
+        }
+
+        function getNumber(data, string)
+        {
+            let index = data.indexOf(string)
+            if(index >= 0)
+            {
+                index += string.length;
+                return Number(data.substring(index, data.indexOf('\n', index)));
+            }
+            else
+            {
+                return NaN;
+            }
+        }
+
+        function getString(data, string)
+        {
+            let index = data.indexOf(string);
+            if(index>=0)
+            {
+                index += string.length;
+                return data.substring(index, data.indexOf('\n', index));
+            }
+            else
+            {
+                return "";
+            }
+        }
+
+        function addLocoToTable(name, locoIcon, adr, protocol, binFile)
+        {
+            const locoLine = document.createElement("tr");
+            const locoName = document.createElement("th");
+            locoName.innerText = name;
+            locoLine.appendChild(locoName);
+
+            locoIcon.height = 24;
+            locoLine.appendChild(locoIcon);
+
+            const locoAdr = document.createElement("th");
+            locoAdr.innerText = adr;
+            locoLine.appendChild(locoAdr);
+
+            const locoProtocol = document.createElement("th");
+            locoProtocol.innerText = protocol;
+            locoLine.appendChild(locoProtocol);
+
+            const locoFile = document.createElement("th");
+            const locoRef = document.createElement("a");
+            var file = new Blob([binFile], {'text/bin': 'text/bin'});
+            locoRef.href = URL.createObjectURL(file);
+            const fileName = name.replace(' ', '_');
+            locoRef.download = `${fileName}.bin`;
+            locoRef.innerText = `${fileName}.bin`;
+            locoFile.appendChild(locoRef);
+            locoLine.appendChild(locoFile);
+
+            locoTable.appendChild(locoLine);
+        }
+    </script>
+</body>
+</html>
