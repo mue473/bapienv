@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- locolist to lococard converter by Marcel Maage, updated 2024 by Rainer Müller -->
+<!-- locolist to lococard converter by Marcel Maage, updated 2024 - 2025 by Rainer Müller -->
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -40,7 +40,8 @@
                 <th>Icon</th>
                 <th>Adresse</th>
                 <th>Format</th>
-                <th>File</th>
+                <th>File-Download</th>
+                <th>Lokkarte</th>
             </thead>
             <tbody id="locoTable">
             </tbody>
@@ -395,11 +396,28 @@
             const locoRef = document.createElement("a");
             var file = new Blob([binFile], {'text/bin': 'text/bin'});
             locoRef.href = URL.createObjectURL(file);
-            const fileName = name.replace(' ', '_');
+            const fileName = name.replaceAll(' ', '_');
             locoRef.download = `${fileName}.bin`;
             locoRef.innerText = `${fileName}.bin`;
             locoFile.appendChild(locoRef);
             locoLine.appendChild(locoFile);
+
+            const wrcard = document.createElement("input");
+            wrcard.value = "Speichern";
+            wrcard.type = "submit";
+            wrcard.addEventListener('click', function() {
+                const formData = new FormData();
+                formData.append("cardimg", file);
+                fetch ('write2card.php', {
+                    method: "POST",
+                    body: formData
+                })
+                .then ((response) => response.text())
+                .then ((text) => {
+                    alert(`Transfer ${fileName} auf Karte: ${text}`);
+                });
+            });
+            locoLine.appendChild(wrcard);
 
             locoTable.appendChild(locoLine);
         }
