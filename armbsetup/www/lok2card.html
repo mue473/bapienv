@@ -232,12 +232,13 @@
             });
 
             // add functions_2 to bin
-            let functions2 = data.substring(data.indexOf('.funktionen_2\n')+15).split('.funktionen_2\n');
             binData[binIndex++] = 13;
             binData[binIndex++] = 32;
             let numberOfFunctions = 32;
-            //document.getElementById('debugOutput').textContent=functions.length;
-            functions2.forEach((locoFunction)=>{
+            let fu2offs = data.indexOf('.funktionen_2\n');
+            if (fu2offs >= 0) {
+              let functions2 = data.substring(fu2offs+15).split('.funktionen_2\n');
+              functions2.forEach((locoFunction)=>{
                 const typ2 = getNumber(locoFunction, '..typ=');
                 if(!Number.isNaN(typ2))
                 {
@@ -257,9 +258,10 @@
                     binData[binIndex++] = 0;
                 }
                 numberOfFunctions-=2;
-            });
-            binIndex += numberOfFunctions;
-            //TODO: prevent error in case that there are more or less funktionen_2 than 16
+              });
+              binIndex += numberOfFunctions;
+            }
+            else binIndex -= 2;	// turn back
 
             // get mfx uid
             const mfxuid = getNumber(data, '.mfxuid=');
@@ -296,8 +298,7 @@
                 const nameIndex = data.indexOf('..name=');
                 if(nameIndex >= 0)
                 {
-                    nameIndex+='..name='.length;
-                    const mfxName = Number(data.substring(nameIndex, data.indexOf('\n', nameIndex) - 1));
+                    const mfxName = getNumber(mfxStruct, '..name=');
                     binData[binIndex++] = mfxName;
                     binData[binIndex++] = mfxName/256;
                 }
