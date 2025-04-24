@@ -1,7 +1,7 @@
 // i2card.c - character device driver to access i2c card
 //				it will create a device at /dev/i2card
 //
-// C 2023 - 2024 Rainer Müller
+// C 2023 - 2025 Rainer Müller
 // This program is free software according to GNU General Public License 3 (GPL3).
 
 //#define DEBUG
@@ -159,7 +159,7 @@ static long i2card_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		default:	pr_alert("%s: ioctl operation %u is not supported.\n", DEVICE_NAME, cmd);
 					return -ENOTSUPP;
 	}
-	return (l ? -EIO : SUCCESS);		
+	return (l ? -EIO : SUCCESS);
 }
 
 static ssize_t i2card_read(struct file *filp, char __user *buff, size_t count, loff_t *offset)
@@ -194,7 +194,7 @@ static ssize_t i2card_write(struct file *filp, const char __user *buff, size_t l
 	if ((actpos + towrite) > ioparms.cardsize)
 		return -ENOSPC;
 	len = towrite - copy_from_user(devbuf + ADRSIZE, buff, towrite);
-    res = i2card_i2put(len);
+	res = i2card_i2put(len);
 	if (res < 0)						// card access problems
 		return res;
 	actpos += len;
@@ -214,6 +214,11 @@ static struct file_operations fops = {
 
 static int __init i2card_init(void)
 {
+	adapter = i2c_get_adapter(i2cbusid);
+	if (adapter == NULL) {
+		pr_alert("%s: using i2c_adapter for bus %d failed.\n", DEVICE_NAME, i2cbusid);
+		return -EINVAL;
+	}
 	major = register_chrdev(0, DEVICE_NAME, &fops);
 	if (major < 0) {
 		pr_alert("%s: registering device failed with %d.\n", DEVICE_NAME, major);
@@ -232,10 +237,6 @@ static int __init i2card_init(void)
 	ioparms.cardsize = eepsize;
 	ioparms.pagesize = pagesize;
 	i2card_checksizes();
-	adapter = i2c_get_adapter(i2cbusid);
-    if (adapter == NULL)
-		pr_alert("%s: using i2c_adapter for bus %d failed.\n", DEVICE_NAME, i2cbusid);
-	// TODO: why SUCCESS when failed?
 	return SUCCESS;
 }
 
