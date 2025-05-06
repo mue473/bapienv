@@ -1,5 +1,5 @@
 #!/bin/sh -e
-# This file is free software, C 2018 - 2023 Rainer Müller
+# This file is free software, C 2018 - 2025 Rainer Müller
 #
 # rc.local
 #
@@ -12,5 +12,11 @@
 
 # infrared remote control uses RC5 coding
 	echo rc-5 > /sys/class/rc/rc0/protocols
+
+# allow shutdown etc. by user
+	chmod 4711 /usr/bin/systemctl
+
+# webserver should be able to access the card
+	chown www-data: /dev/i2card
 
 exit 0
