@@ -18,6 +18,7 @@
 #include "i2card.h"
 
 #define SUCCESS 0
+#define IOCTL_TCGETS 0x5401
 #define DEVICE_NAME "i2card"
 #define ADRSIZE 2
 #define DATASIZE 128
@@ -156,6 +157,7 @@ static long i2card_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 									DEVICE_NAME, ioparms.cardsize, ioparms.pagesize);
 							i2card_checksizes();
 							break;
+		case IOCTL_TCGETS:	return -ENOTTY;		// no UART properties
 		default:	pr_alert("%s: ioctl operation %u is not supported.\n", DEVICE_NAME, cmd);
 					return -ENOTSUPP;
 	}
