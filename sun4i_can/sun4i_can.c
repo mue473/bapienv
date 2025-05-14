@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2013 Peter Chen
  * Copyright (C) 2015 Gerhard Bertelsmann
- * updated 2022 - 2024 Rainer Müller
+ * updated 2022 - 2025 Rainer Müller
  * All rights reserved.
  *
  * Parts of this software are based on (derived from) the SJA1000 code by:
@@ -54,6 +54,7 @@
 #include <linux/can/error.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/ethtool.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -418,7 +419,11 @@ static netdev_tx_t sun4ican_start_xmit(struct sk_buff *skb, struct net_device *d
 	canid_t id;
 	int i;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,0,9)
 	if (can_dropped_invalid_skb(dev, skb))
+#else
+	if (can_dev_dropped_skb(dev, skb))
+#endif
 		return NETDEV_TX_OK;
 
 	netif_stop_queue(dev);
@@ -533,11 +538,6 @@ static int sun4i_can_err(struct net_device *dev, u8 isrc, u8 status)
 	rxerr = (errc >> 16) & 0xFF;
 	txerr = errc & 0xFF;
 
-	if (skb) {
-		cf->data[6] = txerr;
-		cf->data[7] = rxerr;
-	}
-
 	if (isrc & SUN4I_INT_DATA_OR) {
 		/* data overrun interrupt */
 		netdev_dbg(dev, "data overrun interrupt\n");
@@ -568,15 +568,20 @@ static int sun4i_can_err(struct net_device *dev, u8 isrc, u8 status)
 		else
 			state = CAN_STATE_ERROR_ACTIVE;
 	}
+	if (likely(skb) && state != CAN_STATE_BUS_OFF) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,0,0)
+		cf->can_id |= CAN_ERR_CNT;
+#endif
+		cf->data[6] = txerr;
+		cf->data[7] = rxerr;
+	}
 	if (isrc & SUN4I_INT_BUS_ERR) {
 		/* bus error interrupt */
 		netdev_dbg(dev, "bus error interrupt\n");
 		priv->can.can_stats.bus_error++;
-		stats->rx_errors++;
+		ecc = readl(priv->base + SUN4I_REG_STA_ADDR);
 
 		if (likely(skb)) {
-			ecc = readl(priv->base + SUN4I_REG_STA_ADDR);
-
 			cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 
 			switch (ecc & SUN4I_STA_MASK_ERR) {
@@ -594,9 +599,15 @@ static int sun4i_can_err(struct net_device *dev, u8 isrc, u8 status)
 					       >> 16;
 				break;
 			}
-			/* error occurred during transmission? */
-			if ((ecc & SUN4I_STA_ERR_DIR) == 0)
+		}
+
+		/* error occurred during transmission? */
+		if ((ecc & SUN4I_STA_ERR_DIR) == 0) {
+			if (likely(skb))
 				cf->data[2] |= CAN_ERR_PROT_TX;
+			stats->tx_errors++;
+		} else {
+			stats->rx_errors++;
 		}
 	}
 	if (isrc & SUN4I_INT_ERR_PASSIVE) {
@@ -622,10 +633,9 @@ static int sun4i_can_err(struct net_device *dev, u8 isrc, u8 status)
 		tx_state = txerr >= rxerr ? state : 0;
 		rx_state = txerr <= rxerr ? state : 0;
 
-		if (likely(skb))
-			can_change_state(dev, cf, tx_state, rx_state);
-		else
-			priv->can.state = state;
+		/* The skb allocation might fail, but can_change_state()
+		 * handles cf == NULL. */
+		can_change_state(dev, cf, tx_state, rx_state);
 		if (state == CAN_STATE_BUS_OFF)
 			can_bus_off(dev);
 	}
@@ -753,6 +763,10 @@ static const struct net_device_ops sun4ican_netdev_ops = {
 	.ndo_start_xmit = sun4ican_start_xmit,
 };
 
+static const struct ethtool_ops sun4ican_ethtool_ops = {
+	.get_ts_info = ethtool_op_get_ts_info,
+};
+
 static const struct of_device_id sun4ican_of_match[] = {
 	{.compatible = "allwinner,sun4i-a10-can"},
 	{},
@@ -760,14 +774,20 @@ static const struct of_device_id sun4ican_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, sun4ican_of_match);
 
-static int sun4ican_remove(struct platform_device *pdev)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,0)
+  static int sun4ican_remove(struct platform_device *pdev)
+#else
+  static void sun4ican_remove(struct platform_device *pdev)
+#endif
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
 
 	unregister_netdev(dev);
 	free_candev(dev);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,0)
 	return 0;
+#endif
 }
 
 static int sun4ican_probe(struct platform_device *pdev)
@@ -810,6 +830,7 @@ static int sun4ican_probe(struct platform_device *pdev)
 	}
 
 	dev->netdev_ops = &sun4ican_netdev_ops;
+	dev->ethtool_ops = &sun4ican_ethtool_ops;
 	dev->irq = irq;
 	dev->flags |= IFF_ECHO;
 
