@@ -397,7 +397,7 @@
             const locoRef = document.createElement("a");
             var file = new Blob([binFile], {'text/bin': 'text/bin'});
             locoRef.href = URL.createObjectURL(file);
-            const fileName = name.replaceAll(' ', '_');
+            const fileName = name.replace(/ /g, '_');
             locoRef.download = `${fileName}.bin`;
             locoRef.innerText = `${fileName}.bin`;
             locoFile.appendChild(locoRef);
