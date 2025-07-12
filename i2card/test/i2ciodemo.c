@@ -1,3 +1,5 @@
+// C 2024 - 2025 Rainer Müller
+// This program is free software according to GNU General Public License 3 (GPL3).
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +9,7 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 
-#include "i2card.h"
+#include "../i2card.h"
 
 #define TEST_DATA_SIZE		128
 #define WRITE_DATA_SIZE		(TEST_DATA_SIZE / 2)
@@ -48,7 +50,7 @@ long get_epsize(void)
 	if (sz < 0L) 
 		fprintf(stderr, "%s: error ftell failed, random access not supported.\n", __func__);
 	else
-		printf("fseek/ftell returns a size of %d\n", sz);	
+		printf("fseek/ftell returns a size of %ld\n", sz);	
 	return sz;
 }
 
@@ -58,21 +60,21 @@ unsigned char *read_data(void)
 	fseek(fp, 0, SEEK_SET);
 
 	if ((data = malloc(TEST_DATA_SIZE)) == NULL) {
-		fprintf(stderr, "%s: can't alloc %u bytes for data\n", __func__, TEST_DATA_SIZE);
+		fprintf(stderr, "%s: can't alloc %d bytes for data\n", __func__, TEST_DATA_SIZE);
 		fclose(fp);
 		return NULL;
 	}
 	gettimeofday(&tv, NULL);		// time before
 	time_t t_now = tv.tv_sec * 1000000 + tv.tv_usec;
 	if ((fread((void *)data, 1, TEST_DATA_SIZE, fp)) != TEST_DATA_SIZE) {
-		fprintf(stderr, "%s: error: fread fom card failed\n", __func__);
+		fprintf(stderr, "%s: error: fread from card failed\n", __func__);
 		fclose(fp);
 		free(data);
 		return NULL;
 	}
 	gettimeofday(&tv, NULL);		// time after
 	t_now = tv.tv_sec * 1000000 + tv.tv_usec - t_now;
-	printf("read took %dµs\n", t_now);
+	printf("read took %ldµs\n", t_now);
 	return data;
 }
 
@@ -91,11 +93,11 @@ int write_data(void)
 	fflush(fp);						// wait until ready
 	gettimeofday(&tv, NULL);		// time after
 	t_now = tv.tv_sec * 1000000 + tv.tv_usec - t_now;
-	printf("took %dµs\n", t_now);
+	printf("took %ldµs\n", t_now);
 	return 0;
 }
 
-int main(int argc, char **argv)
+int main(void)
 {	
 	fp = fopen("/dev/i2card", "r+b");
 	if (fp == NULL) {

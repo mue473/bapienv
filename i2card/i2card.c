@@ -50,21 +50,26 @@ static struct ioctl_rd ioparms;
 
 static int i2card_i2get(int nmbr)
 {
-    struct i2c_msg msg[2];
-    int n, ret;
+	struct i2c_msg msg[2];
+	int n, ret;
 	pr_devel("%s: read %i bytes from card pos %lli.\n", DEVICE_NAME, nmbr, actpos);
-    devbuf[0] = actpos >> 8;
-    devbuf[1] = actpos & 0xFF;
-    msg[0].addr = i2caddr;
-    msg[0].flags = 0;
-    msg[0].buf = devbuf;
-    msg[0].len = ADRSIZE;
-    msg[1].addr = i2caddr;
-    msg[1].flags = I2C_M_RD;
-    msg[1].buf = devbuf + ADRSIZE;
-    msg[1].len = nmbr;
+	devbuf[0] = actpos >> 8;
+	devbuf[1] = actpos & 0xFF;
+	msg[0].addr = i2caddr;
+	msg[0].flags = 0;
+	msg[0].buf = devbuf;
+	msg[0].len = ADRSIZE;
+	if (ioparms.cardsize <= 2048) {		// one byte address
+		msg[0].addr += (devbuf[0] & 7);
+		msg[0].buf++;
+		msg[0].len--;
+	}
+	msg[1].addr = msg[0].addr;
+	msg[1].flags = I2C_M_RD;
+	msg[1].buf = devbuf + ADRSIZE;
+	msg[1].len = nmbr;
 	for(n = 0; n < 15; n++) {			// acknowledge polling
-    	ret = i2c_transfer(adapter, msg, 2);
+		ret = i2c_transfer(adapter, msg, 2);
 		if (ret > 0) return ret;		// should be 2 if OK
 		usleep_range(1000, 1500);
 	}
@@ -75,17 +80,22 @@ static int i2card_i2get(int nmbr)
 
 static int i2card_i2put(int nmbr)
 {
-    struct i2c_msg msg;
-    int n, ret;
+	struct i2c_msg msg;
+	int n, ret;
 	pr_devel("%s: write %i bytes to card pos %lli.\n", DEVICE_NAME, nmbr, actpos);
-    devbuf[0] = actpos >> 8;
-    devbuf[1] = actpos & 0xFF;
-    msg.addr = i2caddr;
-    msg.flags = 0;
-    msg.buf = devbuf;
-    msg.len = nmbr + ADRSIZE;
+	devbuf[0] = actpos >> 8;
+	devbuf[1] = actpos & 0xFF;
+	msg.addr = i2caddr;
+	msg.flags = 0;
+	msg.buf = devbuf;
+	msg.len = nmbr + ADRSIZE;
+	if (ioparms.cardsize <= 2048) {		// one byte address
+		msg.addr += (devbuf[0] & 7);
+		msg.buf++;
+		msg.len--;
+	}
 	for(n = 0; n < 15; n++) {			// acknowledge polling
-    	ret = i2c_transfer(adapter, &msg, 1);
+		ret = i2c_transfer(adapter, &msg, 1);
 		if (ret > 0) return ret;		// should be 1 if OK
 		usleep_range(1000, 1500);
 	}
@@ -119,6 +129,7 @@ static int i2card_open(struct inode *devnode, struct file *filp)
 		return -EBUSY;
 	try_module_get(THIS_MODULE);
 	actpos = 0;
+	ioparms.cardsize = 0;
 	ret = i2card_i2get(1);			// check if card is accessible
 	if (ret != 2) {
 		pr_devel("%s: reading one byte failed with code %d.\n", DEVICE_NAME, ret);
@@ -185,7 +196,7 @@ static ssize_t i2card_read(struct file *filp, char __user *buff, size_t count, l
 }
 
 static ssize_t i2card_write(struct file *filp, const char __user *buff, size_t len, loff_t *offset)
-{ 
+{
 	int towrite, res;
 	pr_devel("%s: write from buffer with size %u to offset %lli.\n", DEVICE_NAME, len, *offset);
 	if (ioparms.pagesize > DATASIZE)
@@ -257,3 +268,4 @@ module_exit(i2card_exit);
 MODULE_DESCRIPTION("driver for removable i2c card");
 MODULE_AUTHOR("Rainer Müller - mue473");
 MODULE_LICENSE("GPL");
+MODULE_VERSION("1.25.7");
