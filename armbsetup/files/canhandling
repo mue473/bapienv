@@ -30,7 +30,7 @@ start() {
 	ip link set vcan0 up
 
 	# start gateway for MCS devices
-	can2lan -m -c /www/config -i $commcan
+	can2lan -m -c /www/config -i $commcan -b end0
 }
 
 stop() {
