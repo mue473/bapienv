@@ -17,7 +17,7 @@ install: all
 	chmod 4711 $(BINS)
 
 check:
-	cppcheck --enable=all . 2> cppcheck.txt 1| cat
+	cppcheck --enable=all --suppress=missingIncludeSystem . 2> cppcheck.txt 1| cat
 
 i2ciodemo: i2ciodemo.o
 	$(CC) $(CFLAGS) -o i2ciodemo i2ciodemo.o
@@ -26,6 +26,6 @@ i2c256: i2c256.o
 	$(CC) $(CFLAGS) -o i2c256 i2c256.o
 
 clean:
-	$(RM) *.o *.d $(BINS)
+	$(RM) *.o *.d $(BINS) cppcheck.txt
 
 -include *.d

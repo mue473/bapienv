@@ -1,6 +1,6 @@
 #
 # Makefile for the CAN gateway for BananaPi: https://github.com/GBert/railroad/tree/master/can2udp
-# to be run on target	-	C 2018 - 2024 Rainer Müller
+# to be run on target	-	C 2018 - 2025 Rainer Müller
 #
 # This Makefile is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -45,7 +45,7 @@ install: all
 	ln -sf $(DESTDIR)/gb2-update $(DESTDIR)/ms2-update
 
 check:
-	cppcheck --enable=all . 2> cppcheck.txt 1| cat
+	cppcheck --enable=all --suppress=missingIncludeSystem . 2> cppcheck.txt 1| cat
 
 lan-schnitte: lan-schnitte.o
 	$(CC) $(CFLAGS) -o lan-schnitte lan-schnitte.o
@@ -114,7 +114,7 @@ spitest: spitest.o
 	$(CC) $(CFLAGS) -o spitest spitest.o
 
 clean:
-	$(RM) *.o *.d $(BINS)
+	$(RM) *.o *.d $(BINS) cppcheck.txt
 
 -include *.d
 

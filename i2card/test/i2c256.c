@@ -1,4 +1,4 @@
-// C 2025 Rainer Müller
+// C 2025 Rainer MÃ¼ller
 // This program is free software according to GNU General Public License 3 (GPL3).
 
 #include <stdio.h>
@@ -15,7 +15,7 @@ unsigned char *data = NULL;
 FILE *fp;
 int n = 0;
 
-int ioctl_set_dat(unsigned int cardsize, unsigned short	pagesize)
+static int ioctl_set_dat(unsigned int cardsize, unsigned short pagesize)
 {
 	printf("setting EEPROM size %u, pagesize %u.\n", cardsize, pagesize);
 	iowrdat.cardsize = cardsize;

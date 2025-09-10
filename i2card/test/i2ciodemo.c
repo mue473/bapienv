@@ -21,7 +21,7 @@ FILE *fp;
 
 /* Functions for the ioctl calls */
 
-int ioctl_get_dat(void)
+static int ioctl_get_dat(void)
 {
 	int ret_val = ioctl(fileno(fp), IOCTL_PARMGET, &iorddat);
 	if (ret_val < 0)
@@ -32,7 +32,7 @@ int ioctl_get_dat(void)
 	return ret_val;
 }
 
-int ioctl_set_dat(unsigned int cardsize, unsigned short	pagesize)
+static int ioctl_set_dat(unsigned int cardsize, unsigned short pagesize)
 {
 	printf("setting EEPROM size %u, pagesize %u.\n", cardsize, pagesize);
 	iowrdat.cardsize = cardsize;
@@ -43,7 +43,7 @@ int ioctl_set_dat(unsigned int cardsize, unsigned short	pagesize)
 	return ret_val;
 }
 
-long get_epsize(void)
+static long get_epsize(void)
 {
 	fseek(fp, 0, SEEK_END);
 	long int sz = ftell(fp);
@@ -54,7 +54,7 @@ long get_epsize(void)
 	return sz;
 }
 
-unsigned char *read_data(void)
+static unsigned char *read_data(void)
 {
 	struct timeval tv = { 0, 0 };
 	fseek(fp, 0, SEEK_SET);
@@ -78,7 +78,7 @@ unsigned char *read_data(void)
 	return data;
 }
 
-int write_data(void)
+static int write_data(void)
 {
 	struct timeval tv = { 0, 0 };
 	printf("Write data using pagesize %u ", iorddat.pagesize);

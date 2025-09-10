@@ -16,7 +16,7 @@ OBJ = $(patsubst %.c,obj/%.o,$(SRC))
 DEP = $(OBJ:.o=.d)
 
 CC = gcc
-CHK = cppcheck --enable=all
+CHK = cppcheck --enable=all --suppress=missingIncludeSystem
 
 # modifications for special environment
 -include /etc/os-release

@@ -1,6 +1,6 @@
 #
 # Makefile for the ms1relay project for BananaPi
-# to be run on target	-	C 2021 - 2023 Rainer Müller 
+# to be run on target	-	C 2021 - 2025 Rainer MÃ¼ller
 #
 # This Makefile is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -31,7 +31,7 @@ clean:
 	$(RM) *.o *.d $(BINS)
 
 check:
-	cppcheck --enable=all .
+	cppcheck --enable=all --suppress=missingIncludeSystem .
 
 install: all
 	cp -u -p $(BINS) $(DESTDIR)
