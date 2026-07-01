@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2013 Peter Chen
  * Copyright (C) 2015 Gerhard Bertelsmann
- * updated 2022 - 2025 Rainer Müller
+ * updated 2022 - 2026 Rainer Müller
  * All rights reserved.
  *
  * Parts of this software are based on (derived from) the SJA1000 code by:
@@ -656,8 +656,8 @@ static irqreturn_t sun4i_can_interrupt(int irq, void *dev_id)
 	u8 isrc, status;
 	int n = 0;
 
-	while ((isrc = readl(priv->base + SUN4I_REG_INT_ADDR)) &&
-	       (n < SUN4I_CAN_MAX_IRQ)) {
+	while ((n < SUN4I_CAN_MAX_IRQ) &&
+		   (isrc = readl(priv->base + SUN4I_REG_INT_ADDR))) {
 		n++;
 		status = readl(priv->base + SUN4I_REG_STA_ADDR);
 
@@ -761,9 +761,6 @@ static const struct net_device_ops sun4ican_netdev_ops = {
 	.ndo_open = sun4ican_open,
 	.ndo_stop = sun4ican_close,
 	.ndo_start_xmit = sun4ican_start_xmit,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
-	.ndo_change_mtu = can_change_mtu,
-#endif
 };
 
 static const struct ethtool_ops sun4ican_ethtool_ops = {
